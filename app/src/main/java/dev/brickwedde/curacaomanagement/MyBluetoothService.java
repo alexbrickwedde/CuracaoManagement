@@ -13,6 +13,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,20 +29,21 @@ public class MyBluetoothService {
         cthread.start();
     }
 
-    private interface MessageConstants {
+    public interface MessageConstants {
         public static final int MESSAGE_READ = 0;
         public static final int MESSAGE_WRITE = 1;
         public static final int MESSAGE_TOAST = 2;
+        public static final int CONNECTED = 3;
+        public static final int DISCONNECTED = 4;
+        public static final int CONNECTFAILED = 5;
     }
 
+    private BluetoothSocket mmSocket;
+    private InputStream mmInStream;
+    private OutputStream mmOutStream;
+    private byte[] mmBuffer; // mmBuffer store for the stream
+
     private class ConnectedThread extends Thread {
-        private BluetoothSocket mmSocket;
-        private InputStream mmInStream;
-        private OutputStream mmOutStream;
-        private byte[] mmBuffer; // mmBuffer store for the stream
-
-        private BluetoothSocket sock;
-
         public void run() {
             try {
                 BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -51,67 +53,93 @@ public class MyBluetoothService {
                     for (BluetoothDevice device : pairedDevices) {
                         String deviceName = device.getName();
                         String deviceHardwareAddress = device.getAddress(); // MAC address
-                        if (deviceName.equals("wasserzaehler")) {
+                        if (deviceName.equals("LAURA")) {
                             mmSocket = device.createRfcommSocketToServiceRecord( BT_SERIAL_DEVICE_UUID);
 
                             try {
                                 mmSocket.connect();
 
-                                mmInStream= sock.getInputStream();
-                                mmOutStream = sock.getOutputStream();
+                                mmInStream= mmSocket.getInputStream();
+                                mmOutStream = mmSocket.getOutputStream();
 
                                 mmBuffer = new byte[1024];
-                                int numBytes;
+                                String sCmd = "";
+
+                                Message cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
+                                cnnctMsg.sendToTarget();
 
                                 while (true) {
                                     try {
-                                        numBytes = mmInStream.read(mmBuffer);
-                                        Message readMsg = handler.obtainMessage(
-                                                MessageConstants.MESSAGE_READ, numBytes, -1,
-                                                mmBuffer);
-                                        readMsg.sendToTarget();
+                                        int len = mmInStream.read(mmBuffer);
+                                        String sTemp = new String(mmBuffer, 0, len, Charset.forName("UTF-8"));
+                                        sTemp = sTemp.replace('\n', '\r');
+
+                                        sCmd += sTemp;
+
+                                        int i;
+                                        do {
+                                            i = sCmd.indexOf('\r');
+                                            String sCmdLine = sCmd.substring(0, i - 1);
+                                            sCmd = sCmd.substring(i + 1);
+
+                                            Message readMsg = handler.obtainMessage(
+                                                    MessageConstants.MESSAGE_READ, sCmdLine.length(), -1,
+                                                    sCmdLine);
+                                            readMsg.sendToTarget();
+                                        } while (i >= 0);
+
                                     } catch (IOException e) {
                                         Log.d(TAG, "Input stream was disconnected", e);
+                                        Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
+                                        readMsg.sendToTarget();
                                         break;
                                     }
                                 }
 
                             }catch( IOException e) {
                                 Log.e(TAG, "Connection failed: ", e);
+                                Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
+                                readMsg.sendToTarget();
+                                break;
                             }
+                            Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
+                            readMsg.sendToTarget();
+                            break;
                         }
                     }
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Socket's listen() method failed", e);
+                Message readMsg = handler.obtainMessage(MessageConstants.CONNECTFAILED, 0, -1,null);
+                readMsg.sendToTarget();
             }
         }
+    }
 
-        public void write(byte[] bytes) {
-            try {
-                mmOutStream.write(bytes);
+    public void write(byte[] bytes) {
+        try {
+            mmOutStream.write(bytes);
 
-                Message writtenMsg = handler.obtainMessage(
-                        MessageConstants.MESSAGE_WRITE, -1, -1, mmBuffer);
-                writtenMsg.sendToTarget();
-            } catch (IOException e) {
-                Log.e(TAG, "Error occurred when sending data", e);
+            Message writtenMsg = handler.obtainMessage(
+                    MessageConstants.MESSAGE_WRITE, -1, -1, mmBuffer);
+            writtenMsg.sendToTarget();
+        } catch (IOException e) {
+            Log.e(TAG, "Error occurred when sending data", e);
 
-                Message writeErrorMsg =
-                        handler.obtainMessage(MessageConstants.MESSAGE_TOAST);
-                Bundle bundle = new Bundle();
-                bundle.putString("toast", "Couldn't send data to the other device");
-                writeErrorMsg.setData(bundle);
-                handler.sendMessage(writeErrorMsg);
-            }
+            Message writeErrorMsg =
+                    handler.obtainMessage(MessageConstants.MESSAGE_TOAST);
+            Bundle bundle = new Bundle();
+            bundle.putString("toast", "Couldn't send data to the other device");
+            writeErrorMsg.setData(bundle);
+            handler.sendMessage(writeErrorMsg);
         }
+    }
 
-        public void cancel() {
-            try {
-                mmSocket.close();
-            } catch (IOException e) {
-                Log.e(TAG, "Could not close the connect socket", e);
-            }
+    public void cancel() {
+        try {
+            mmSocket.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Could not close the connect socket", e);
         }
     }
 }

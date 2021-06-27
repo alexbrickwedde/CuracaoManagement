@@ -4,13 +4,17 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
+import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
 
+import androidx.annotation.NonNull;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -25,9 +29,31 @@ public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration mAppBarConfiguration;
 
+    MyBluetoothService mbs = null;
     public void connectBt() {
-        MyBluetoothService m = new MyBluetoothService(this, new Handler());
+        if (mbs == null) {
+            mbs = new MyBluetoothService(this, new Handler());
+        } else {
+            Toast.makeText(this,"Already connecting/ed", Toast.LENGTH_LONG).show();
+        }
     }
+
+    private class MyHandler extends Handler {
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            switch (msg.what) {
+                case MyBluetoothService.MessageConstants.CONNECTFAILED:
+                case MyBluetoothService.MessageConstants.DISCONNECTED:
+                    mbs = null;
+                    break;
+                case MyBluetoothService.MessageConstants.CONNECTED:
+                    mbs.write("z\r".getBytes());
+                    break;
+            }
+        }
+    }
+
+    MyHandler mHandler = new MyHandler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                mbs = new MyBluetoothService(MainActivity.this, mHandler);
             }
         });
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
