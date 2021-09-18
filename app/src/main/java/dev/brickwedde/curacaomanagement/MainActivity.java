@@ -2,6 +2,7 @@ package dev.brickwedde.curacaomanagement;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -10,6 +11,12 @@ import android.view.View;
 import android.view.Menu;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
@@ -23,7 +30,11 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -79,6 +90,22 @@ public class MainActivity extends AppCompatActivity {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(navigationView, navController);
+
+        Handler h = new Handler();
+        try {
+            MainApplication.getApi().call(h, new CcApi.Callback() {
+                public void then(JSONObject o) throws Exception {
+                    Log.e("y", o.toString());
+                    String sessionkey = o.getString("sessionkey");
+                    MainApplication.getApi().setSessionKey(sessionkey);
+                }
+                public void catchy(Exception e) {
+                    Log.e("y", e.getLocalizedMessage());
+                }
+            }, "login", new JSONObject("admin"), new JSONObject("a4g352oighmqa532h"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
