@@ -92,20 +92,17 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupWithNavController(navigationView, navController);
 
         Handler h = new Handler();
-        try {
-            MainApplication.getApi().call(h, new CcApi.Callback() {
-                public void then(JSONObject o) throws Exception {
-                    Log.e("y", o.toString());
-                    String sessionkey = o.getString("sessionkey");
-                    MainApplication.getApi().setSessionKey(sessionkey);
-                }
-                public void catchy(Exception e) {
-                    Log.e("y", e.getLocalizedMessage());
-                }
-            }, "login", new JSONObject("admin"), new JSONObject("a4g352oighmqa532h"));
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+        MainApplication.getApi().call(h, new CcApi.Callback() {
+            public void then(JSONObject o) throws Exception {
+                Log.e("y", o.toString());
+                String sessionkey = o.getString("sessionkey");
+                MainApplication.getApi().setSessionKey(sessionkey);
+            }
+            public void catchy(Exception e) {
+
+                Log.e("y", e.getLocalizedMessage());
+            }
+        }, "login", "admin", "a4g352oighmqa532h");
     }
 
     @Override

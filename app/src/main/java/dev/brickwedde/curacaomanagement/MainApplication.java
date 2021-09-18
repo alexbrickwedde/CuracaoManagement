@@ -11,6 +11,11 @@ public class MainApplication extends Application {
 
     public MainApplication() {
         super();
-        api = new CcApi("https://andrew.nfsroot.de/api/method", this);
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        api = new CcApi("https://andrew.nfsroot.de/api/method", getApplicationContext());
     }
 }

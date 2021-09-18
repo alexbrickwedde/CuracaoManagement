@@ -37,11 +37,11 @@ public class CcApi {
         void catchy(Exception e);
     }
 
-    void call(final Handler h, Callback cb, String function, JSONObject ...args) {
+    void call(final Handler h, Callback cb, String function, Object ...args) {
         String url = this.endpoint + "/" + function;
 
         JSONArray a = new JSONArray();
-        for(JSONObject o : args) {
+        for(Object o : args) {
             a.put(o);
         }
 
@@ -100,5 +100,6 @@ public class CcApi {
             }
         };
         queue.add(stringRequest);
+        queue.start();
     }
 }
