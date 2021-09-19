@@ -3,6 +3,7 @@ package dev.brickwedde.curacaomanagement;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -91,17 +93,20 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(navigationView, navController);
 
-        Handler h = new Handler();
-        MainApplication.getApi().call(h, new CcApi.Callback() {
-            public void then(JSONObject o) throws Exception {
-                Log.e("y", o.toString());
-                String sessionkey = o.getString("sessionkey");
-                MainApplication.getApi().setSessionKey(sessionkey);
-            }
-            public void catchy(Exception e) {
-                Log.e("y", e.getLocalizedMessage());
-            }
-        }, "login", "admin", "a4g352oighmqa532h");
+        if (!MainApplication.getApi().hasSessionKey(this)) {
+            CcApi.gotoLogin(this);
+        } else {
+            Handler h = new Handler();
+            MainApplication.getApi().call(h, new CcApi.Callback() {
+                public void then(JSONObject o) throws Exception {
+                    Toast.makeText(MainActivity.this, "Session valid", Toast.LENGTH_LONG).show();
+                }
+                public void catchy(Exception e, int status, String content) {
+                    Log.e("y", "" + status + ":" + content);
+                    Toast.makeText(MainActivity.this, "Checksession failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+                }
+            }, "checksessionkey");
+        }
     }
 
     @Override

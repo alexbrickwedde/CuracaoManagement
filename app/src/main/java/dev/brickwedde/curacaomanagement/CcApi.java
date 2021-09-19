@@ -1,8 +1,16 @@
 package dev.brickwedde.curacaomanagement;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.View;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
@@ -24,18 +32,71 @@ public class CcApi {
     private String sessionKey;
     private RequestQueue queue;
 
+    private static final long SYNC_FREQUENCY = 60 * 60;  // 1 hour (in seconds)
+    private static final String CONTENT_AUTHORITY = "dev.brickwedde.curacaomanagement.ccapi";
+    private static final String PREF_SETUP_COMPLETE = "setup_complete";
+    // Value below must match the account type specified in res/xml/syncadapter.xml
+    public static final String ACCOUNT_TYPE = "dev.brickwedde.curacaomanagement.ccapi.account";
+
     CcApi(String endpoint, Context context) {
         this.endpoint = endpoint;
         queue = Volley.newRequestQueue(context);
     }
 
-    public void setSessionKey(String sessionkey) {
+    public void setSessionKey(String sessionkey, Context context) {
         this.sessionKey = sessionkey;
+        saveSessionKeyToAccount(context, sessionKey);
+    }
+
+    public boolean hasSessionKey(Context context) {
+        if (sessionKey == null) {
+            sessionKey = getSessionKeyFromAccount(context);
+        }
+        return sessionKey != null;
+    }
+
+    public static String getSessionKeyFromAccount(Context context) {
+        try {
+            Account account = GenericAccountService.GetAccount(ACCOUNT_TYPE);
+            AccountManager accountManager =
+                    (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
+            return accountManager.getPassword(account);
+        } catch (Exception e) {
+        }
+        return null;
+    }
+
+    public static void saveSessionKeyToAccount(Context context, String sessionKey) {
+        boolean newAccount = false;
+        boolean setupComplete = PreferenceManager
+                .getDefaultSharedPreferences(context).getBoolean(PREF_SETUP_COMPLETE, false);
+
+        // Create account, if it's missing. (Either first run, or user has deleted account.)
+        Account account = GenericAccountService.GetAccount(ACCOUNT_TYPE);
+        AccountManager accountManager =
+                (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
+        if (accountManager.addAccountExplicitly(account, sessionKey, null)) {
+            ContentResolver.setIsSyncable(account, CONTENT_AUTHORITY, 1);
+            ContentResolver.setSyncAutomatically(account, CONTENT_AUTHORITY, true);
+            ContentResolver.addPeriodicSync(
+                    account, CONTENT_AUTHORITY, new Bundle(),SYNC_FREQUENCY);
+            newAccount = true;
+        }
+
+        if (newAccount || !setupComplete) {
+            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putBoolean(PREF_SETUP_COMPLETE, true).commit();
+        }
+    }
+
+    public static void gotoLogin(Activity activity) {
+        Intent intent = new Intent(activity, LoginActivity.class);
+        activity.startActivity(intent);
     }
 
     public static interface Callback {
         void then(JSONObject o) throws Exception;
-        void catchy(Exception e);
+        void catchy(Exception e, int status, String content);
     }
 
     void call(final Handler h, Callback cb, String function, Object ...args) {
@@ -51,21 +112,20 @@ public class CcApi {
                 @Override
                 public void onResponse(String response) {
                     try {
-                        // Display the first 500 characters of the response string.
                         JSONObject o = new JSONObject(response);
                         h.postDelayed(new Runnable() {
                             public void run() {
                                 try {
                                     cb.then(o);
                                 } catch (Exception e) {
-                                    cb.catchy(e);
+                                    cb.catchy(e, 200, response);
                                 }
                             }
                         }, 0);
                     } catch (Exception e) {
                         h.postDelayed(new Runnable() {
                             public void run() {
-                                cb.catchy(e);
+                                cb.catchy(e, 200, response);
                             }
                         }, 0);
                     }
@@ -76,7 +136,7 @@ public class CcApi {
                 public void onErrorResponse(VolleyError error) {
                     h.postDelayed(new Runnable() {
                         public void run() {
-                            cb.catchy(error);
+                            cb.catchy(error, error.networkResponse.statusCode, new String(error.networkResponse.data));
                         }
                     }, 0);
                 }
@@ -88,7 +148,8 @@ public class CcApi {
 
             @Override
             public byte[] getBody() throws AuthFailureError {
-                return a.toString().getBytes();
+                String s = a.toString();
+                return s.getBytes();
             }
 
             @Override
