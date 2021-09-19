@@ -31,6 +31,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -98,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Handler h = new Handler();
             MainApplication.getApi().call(h, new CcApi.Callback() {
-                public void then(JSONObject o) throws Exception {
-                    Toast.makeText(MainActivity.this, "Session valid", Toast.LENGTH_LONG).show();
+                public void then(JSONObject o, JSONArray a) throws Exception {
+                    fetchTasks();
                 }
                 public void catchy(Exception e, int status, String content) {
                     Log.e("y", "" + status + ":" + content);
@@ -109,6 +110,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void fetchTasks() {
+        Handler h = new Handler();
+        MainApplication.getApi().call(h, new CcApi.Callback() {
+            public void then(JSONObject o, JSONArray a) throws Exception {
+                for(int i = 0; i < a.length(); i++) {
+                    JSONObject task = (JSONObject) a.get(i);
+                    Toast.makeText(MainActivity.this, "Task:" + task.getString("taskname"), Toast.LENGTH_LONG).show();
+                }
+            }
+            public void catchy(Exception e, int status, String content) {
+                Log.e("y", "" + status + ":" + content);
+                Toast.makeText(MainActivity.this, "Fetching tasks failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            }
+        }, "listObjects", "customerprojecttask");
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.

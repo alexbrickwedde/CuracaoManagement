@@ -95,7 +95,7 @@ public class CcApi {
     }
 
     public static interface Callback {
-        void then(JSONObject o) throws Exception;
+        void then(JSONObject o, JSONArray a) throws Exception;
         void catchy(Exception e, int status, String content);
     }
 
@@ -112,11 +112,19 @@ public class CcApi {
                 @Override
                 public void onResponse(String response) {
                     try {
-                        JSONObject o = new JSONObject(response);
+                        final JSONObject o;
+                        final JSONArray a;
+                        if(response.startsWith("[")) {
+                            a = new JSONArray(response);
+                            o = null;
+                        } else {
+                            a = null;
+                            o = new JSONObject(response);
+                        }
                         h.postDelayed(new Runnable() {
                             public void run() {
                                 try {
-                                    cb.then(o);
+                                    cb.then(o, a);
                                 } catch (Exception e) {
                                     cb.catchy(e, 200, response);
                                 }

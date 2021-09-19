@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 import com.android.volley.VolleyError;
 import com.google.android.material.textfield.TextInputEditText;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class LoginActivity extends Activity {
@@ -32,7 +33,7 @@ public class LoginActivity extends Activity {
                 EditText password = findViewById(R.id.login_password);
                 Handler h = new Handler();
                 MainApplication.getApi().call(h, new CcApi.Callback() {
-                    public void then(JSONObject o) throws Exception {
+                    public void then(JSONObject o, JSONArray a) throws Exception {
                         Log.e("y", o.toString());
                         String sessionkey = o.getString("sessionkey");
                         MainApplication.getApi().setSessionKey(sessionkey, LoginActivity.this);
