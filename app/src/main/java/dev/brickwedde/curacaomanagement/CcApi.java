@@ -16,6 +16,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONStringer;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class CcApi {
@@ -45,7 +46,7 @@ public class CcApi {
             a.put(o);
         }
 
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
             new Response.Listener<String>() {
                 @Override
                 public void onResponse(String response) {
@@ -92,14 +93,14 @@ public class CcApi {
 
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
-                Map<String, String> h = super.getHeaders();
+                Map<String, String> h = new HashMap<>();
                 if (sessionKey != null) {
                     h.put("Authorization", "Bearer " + sessionKey);
                 }
                 return h;
             }
         };
+        stringRequest.setShouldCache(false);
         queue.add(stringRequest);
-        queue.start();
     }
 }

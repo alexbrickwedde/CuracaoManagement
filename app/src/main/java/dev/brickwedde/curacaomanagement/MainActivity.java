@@ -99,7 +99,6 @@ public class MainActivity extends AppCompatActivity {
                 MainApplication.getApi().setSessionKey(sessionkey);
             }
             public void catchy(Exception e) {
-
                 Log.e("y", e.getLocalizedMessage());
             }
         }, "login", "admin", "a4g352oighmqa532h");
