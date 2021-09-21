@@ -117,9 +117,12 @@ public class CcApi {
                         if(response.startsWith("[")) {
                             a = new JSONArray(response);
                             o = null;
-                        } else {
+                        } else if(response.startsWith("{")) {
                             a = null;
                             o = new JSONObject(response);
+                        } else {
+                            a = null;
+                            o = null;
                         }
                         h.postDelayed(new Runnable() {
                             public void run() {

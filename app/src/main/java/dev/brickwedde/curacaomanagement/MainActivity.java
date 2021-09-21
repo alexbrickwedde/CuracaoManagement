@@ -15,6 +15,8 @@ import android.view.View;
 import android.view.Menu;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -53,8 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private TaskListAdapter taskListAdapter;
 
     public static class TaskHolder {
-        JSONObject task;
+        ImageView taskTimetrackingButton;
         TextView taskName;
+
+        JSONObject task;
     }
 
     private class TaskListAdapter extends BaseAdapter {
@@ -68,17 +72,71 @@ public class MainActivity extends AppCompatActivity {
 
         public View getView(int position, View convertView, ViewGroup parent) {
             View row = convertView;
-            TaskHolder holder = null;
             LayoutInflater inflater = ((Activity) context).getLayoutInflater();
             row = inflater.inflate(R.layout.tasklist_row, parent, false);
 
-            holder = new TaskHolder();
+            final TaskHolder holder = new TaskHolder();
             holder.task = taskList.get(position);
             holder.taskName = (TextView) row.findViewById(R.id.taskName);
+            holder.taskTimetrackingButton = (ImageView) row.findViewById(R.id.taskTimetrackingButton);
 
             row.setTag(holder);
             try {
                 holder.taskName.setText(holder.task.getString("taskname"));
+                boolean bRunning = false;
+                JSONObject time = null;
+                JSONArray times = null;
+                if (holder.task.has("times")) {
+                    times = holder.task.getJSONArray("times");
+                    for(int i = 0; i < times.length(); i++) {
+                        time = times.getJSONObject(i);
+                        Object stoptimeObj = time.has("stoptime") ? time.get("stoptime") : null;
+                        if (stoptimeObj == null) {
+                            bRunning = true;
+                            break;
+                        }
+                        if (stoptimeObj instanceof Number && ((Number)stoptimeObj).equals(0)) {
+                            bRunning = true;
+                            break;
+                        }
+                    }
+                }
+                final boolean bRunningFinal = bRunning;
+                final JSONObject timeFinal = time;
+                final JSONArray timesFinal = times;
+                if (bRunning) {
+                    holder.taskTimetrackingButton.setImageResource(android.R.drawable.ic_media_pause);
+                } else {
+                    holder.taskTimetrackingButton.setImageResource(android.R.drawable.ic_media_play);
+                }
+
+                holder.taskTimetrackingButton.setClickable(true);
+                holder.taskTimetrackingButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if (bRunningFinal) {
+                            try {
+                                timeFinal.put("stoptime", System.currentTimeMillis());
+                            } catch (JSONException e) {
+                            }
+                        } else {
+                            try {
+                                JSONObject newTime = new JSONObject();
+                                newTime.put("starttime", System.currentTimeMillis());
+                                if (timesFinal != null) {
+                                    timesFinal.put(newTime);
+                                } else {
+                                    JSONArray newTimes = new JSONArray();
+                                    newTimes.put(newTime);
+                                    holder.task.put("times", newTimes);
+                                }
+                            } catch (JSONException e) {
+                            }
+                        }
+
+                        updateTask(holder.task);
+                    }
+                });
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -163,15 +221,6 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(navigationView, navController);
 */
-        for(int i=0;i<=10;i++) {
-            try {
-                JSONObject task = new JSONObject("{\"taskname\":\"Test" + i + "\"}");
-                TASK_LIST.add(task);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-
         taskListAdapter = new TaskListAdapter(this, TASK_LIST);
         ListView listView;
         listView = (ListView) findViewById(R.id.tasklist);
@@ -210,6 +259,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }, "listObjects", "customerprojecttask");
     }
+
+    public void updateTask(JSONObject task) {
+        Handler h = new Handler();
+        MainApplication.getApi().call(h, new CcApi.Callback() {
+            public void then(JSONObject o, JSONArray a) throws Exception {
+                fetchTasks();
+            }
+            public void catchy(Exception e, int status, String content) {
+                Log.e("y", "" + status + ":" + content);
+                Toast.makeText(MainActivity.this, "Updating task failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            }
+        }, "updateObject", "customerprojecttask", task);
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
