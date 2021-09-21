@@ -1,15 +1,22 @@
 package dev.brickwedde.curacaomanagement;
 
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Menu;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.Request;
@@ -35,12 +42,71 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration mAppBarConfiguration;
+    private TaskListAdapter taskListAdapter;
+
+    public static class TaskHolder {
+        JSONObject task;
+        TextView taskName;
+    }
+
+    private class TaskListAdapter extends BaseAdapter {
+        private Context context;
+        private List<JSONObject> taskList;
+
+        public TaskListAdapter(Context context, List<JSONObject> taskList) {
+            this.context = context;
+            this.taskList = taskList;
+        }
+
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View row = convertView;
+            TaskHolder holder = null;
+            LayoutInflater inflater = ((Activity) context).getLayoutInflater();
+            row = inflater.inflate(R.layout.tasklist_row, parent, false);
+
+            holder = new TaskHolder();
+            holder.task = taskList.get(position);
+            holder.taskName = (TextView) row.findViewById(R.id.taskName);
+
+            row.setTag(holder);
+            try {
+                holder.taskName.setText(holder.task.getString("taskname"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            if (position % 2 == 0) {
+                row.setBackgroundColor(Color.rgb(213, 229, 241));
+            } else {
+                row.setBackgroundColor(Color.rgb(255, 255, 255));
+            }
+
+            return row;
+        }
+
+        @Override
+        public int getCount() {
+            return taskList.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return null;
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return 0;
+        }
+    }
 
     MyBluetoothService mbs = null;
     public void connectBt() {
@@ -68,6 +134,8 @@ public class MainActivity extends AppCompatActivity {
 
     MyHandler mHandler = new MyHandler();
 
+    public static List<JSONObject> TASK_LIST = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,9 +158,24 @@ public class MainActivity extends AppCompatActivity {
                 R.id.nav_home)
                 .setDrawerLayout(drawer)
                 .build();
+/*
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(navigationView, navController);
+*/
+        for(int i=0;i<=10;i++) {
+            try {
+                JSONObject task = new JSONObject("{\"taskname\":\"Test" + i + "\"}");
+                TASK_LIST.add(task);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        taskListAdapter = new TaskListAdapter(this, TASK_LIST);
+        ListView listView;
+        listView = (ListView) findViewById(R.id.tasklist);
+        listView.setAdapter(taskListAdapter);
 
         if (!MainApplication.getApi().hasSessionKey(this)) {
             CcApi.gotoLogin(this);
@@ -114,10 +197,12 @@ public class MainActivity extends AppCompatActivity {
         Handler h = new Handler();
         MainApplication.getApi().call(h, new CcApi.Callback() {
             public void then(JSONObject o, JSONArray a) throws Exception {
+                TASK_LIST.clear();
                 for(int i = 0; i < a.length(); i++) {
                     JSONObject task = (JSONObject) a.get(i);
-                    Toast.makeText(MainActivity.this, "Task:" + task.getString("taskname"), Toast.LENGTH_LONG).show();
+                    TASK_LIST.add(task);
                 }
+                taskListAdapter.notifyDataSetChanged();
             }
             public void catchy(Exception e, int status, String content) {
                 Log.e("y", "" + status + ":" + content);
@@ -132,10 +217,12 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+/*
     @Override
     public boolean onSupportNavigateUp() {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
         return NavigationUI.navigateUp(navController, mAppBarConfiguration)
                 || super.onSupportNavigateUp();
     }
+ */
 }
