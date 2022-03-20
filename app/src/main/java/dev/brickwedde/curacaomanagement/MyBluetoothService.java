@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -22,11 +23,13 @@ public class MyBluetoothService {
     private static final UUID BT_SERIAL_DEVICE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private Handler handler;
     private ConnectedThread cthread;
+    private String m_deviceName = "";
 
-    public MyBluetoothService(Context context, Handler p_handler) {
+    public MyBluetoothService(Context context, Handler p_handler, String p_deviceName) {
         handler = p_handler;
         cthread = new ConnectedThread();
         cthread.start();
+        m_deviceName = p_deviceName.toLowerCase();
     }
 
     public interface MessageConstants {
@@ -47,71 +50,75 @@ public class MyBluetoothService {
         public void run() {
             try {
                 BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+                while(true) {
+                    Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+                    if (pairedDevices.size() > 0) {
+                        for (BluetoothDevice device : pairedDevices) {
+                            String deviceName = device.getName();
+                            String deviceHardwareAddress = device.getAddress(); // MAC address
+                            if (deviceName.toLowerCase().equals(m_deviceName)) {
+                                mmSocket = device.createRfcommSocketToServiceRecord( BT_SERIAL_DEVICE_UUID);
 
-                if (pairedDevices.size() > 0) {
-                    for (BluetoothDevice device : pairedDevices) {
-                        String deviceName = device.getName();
-                        String deviceHardwareAddress = device.getAddress(); // MAC address
-                        if (deviceName.equals("LAURA")) {
-                            mmSocket = device.createRfcommSocketToServiceRecord( BT_SERIAL_DEVICE_UUID);
+                                try {
+                                    mmSocket.connect();
 
-                            try {
-                                mmSocket.connect();
+                                    mmInStream= mmSocket.getInputStream();
+                                    mmOutStream = mmSocket.getOutputStream();
 
-                                mmInStream= mmSocket.getInputStream();
-                                mmOutStream = mmSocket.getOutputStream();
+                                    mmBuffer = new byte[1024];
+                                    String sCmd = "";
 
-                                mmBuffer = new byte[1024];
-                                String sCmd = "";
+                                    Message cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
+                                    handler.sendMessage(cnnctMsg);
 
-                                Message cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
-                                cnnctMsg.sendToTarget();
+                                    while (true) {
+                                        try {
+                                            int len = mmInStream.read(mmBuffer);
+                                            String sTemp = new String(mmBuffer, 0, len, Charset.forName("UTF-8"));
+                                            sTemp = sTemp.replace('\n', '\r');
 
-                                while (true) {
-                                    try {
-                                        int len = mmInStream.read(mmBuffer);
-                                        String sTemp = new String(mmBuffer, 0, len, Charset.forName("UTF-8"));
-                                        sTemp = sTemp.replace('\n', '\r');
+                                            sCmd += sTemp;
 
-                                        sCmd += sTemp;
+                                            int i;
+                                            do {
+                                                i = sCmd.indexOf('\r');
+                                                if (i < 0) {
+                                                    break;
+                                                }
+                                                String sCmdLine = sCmd.substring(0, i);
+                                                sCmd = sCmd.substring(i + 2);
 
-                                        int i;
-                                        do {
-                                            i = sCmd.indexOf('\r');
-                                            String sCmdLine = sCmd.substring(0, i - 1);
-                                            sCmd = sCmd.substring(i + 1);
+                                                Message readMsg = handler.obtainMessage(
+                                                        MessageConstants.MESSAGE_READ, sCmdLine.length(), -1,
+                                                        sCmdLine);
+                                                handler.sendMessage(readMsg);
+                                            } while (i >= 0);
 
-                                            Message readMsg = handler.obtainMessage(
-                                                    MessageConstants.MESSAGE_READ, sCmdLine.length(), -1,
-                                                    sCmdLine);
-                                            readMsg.sendToTarget();
-                                        } while (i >= 0);
-
-                                    } catch (IOException e) {
-                                        Log.d(TAG, "Input stream was disconnected", e);
-                                        Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
-                                        readMsg.sendToTarget();
-                                        break;
+                                        } catch (IOException e) {
+                                            Log.d(TAG, "Input stream was disconnected", e);
+                                            Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
+                                            handler.sendMessage(readMsg);
+                                            break;
+                                        }
                                     }
-                                }
 
-                            }catch( IOException e) {
-                                Log.e(TAG, "Connection failed: ", e);
+                                }catch( IOException e) {
+                                    Log.e(TAG, "Connection failed: ", e);
+                                    Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
+                                    handler.sendMessage(readMsg);
+                                    break;
+                                }
                                 Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
-                                readMsg.sendToTarget();
+                                handler.sendMessage(readMsg);
                                 break;
                             }
-                            Message readMsg = handler.obtainMessage(MessageConstants.DISCONNECTED, 0, -1,null);
-                            readMsg.sendToTarget();
-                            break;
                         }
                     }
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Socket's listen() method failed", e);
                 Message readMsg = handler.obtainMessage(MessageConstants.CONNECTFAILED, 0, -1,null);
-                readMsg.sendToTarget();
+                handler.sendMessage(readMsg);
             }
         }
     }
@@ -122,7 +129,7 @@ public class MyBluetoothService {
 
             Message writtenMsg = handler.obtainMessage(
                     MessageConstants.MESSAGE_WRITE, -1, -1, mmBuffer);
-            writtenMsg.sendToTarget();
+            handler.sendMessage(writtenMsg);
         } catch (IOException e) {
             Log.e(TAG, "Error occurred when sending data", e);
 

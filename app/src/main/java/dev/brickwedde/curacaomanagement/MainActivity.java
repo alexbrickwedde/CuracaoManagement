@@ -1,291 +1,212 @@
 package dev.brickwedde.curacaomanagement;
 
-import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
+import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
-import android.graphics.Color;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Menu;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.navigation.NavigationView;
 
 import androidx.annotation.NonNull;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
+import androidx.core.content.ContextCompat;
 import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executor;
-
 public class MainActivity extends AppCompatActivity {
 
-    private AppBarConfiguration mAppBarConfiguration;
-    private TaskListAdapter taskListAdapter;
-
-    public static class TaskHolder {
-        ImageView taskTimetrackingButton;
-        TextView taskName;
-
-        JSONObject task;
-    }
-
-    private class TaskListAdapter extends BaseAdapter {
-        private Context context;
-        private List<JSONObject> taskList;
-
-        public TaskListAdapter(Context context, List<JSONObject> taskList) {
-            this.context = context;
-            this.taskList = taskList;
-        }
-
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View row = convertView;
-            LayoutInflater inflater = ((Activity) context).getLayoutInflater();
-            row = inflater.inflate(R.layout.tasklist_row, parent, false);
-
-            final TaskHolder holder = new TaskHolder();
-            holder.task = taskList.get(position);
-            holder.taskName = (TextView) row.findViewById(R.id.taskName);
-            holder.taskTimetrackingButton = (ImageView) row.findViewById(R.id.taskTimetrackingButton);
-
-            row.setTag(holder);
-            try {
-                holder.taskName.setText(holder.task.getString("taskname"));
-                boolean bRunning = false;
-                JSONObject time = null;
-                JSONArray times = null;
-                if (holder.task.has("times")) {
-                    times = holder.task.getJSONArray("times");
-                    for(int i = 0; i < times.length(); i++) {
-                        time = times.getJSONObject(i);
-                        Object stoptimeObj = time.has("stoptime") ? time.get("stoptime") : null;
-                        if (stoptimeObj == null) {
-                            bRunning = true;
-                            break;
-                        }
-                        if (stoptimeObj instanceof Number && ((Number)stoptimeObj).equals(0)) {
-                            bRunning = true;
-                            break;
-                        }
-                    }
-                }
-                final boolean bRunningFinal = bRunning;
-                final JSONObject timeFinal = time;
-                final JSONArray timesFinal = times;
-                if (bRunning) {
-                    holder.taskTimetrackingButton.setImageResource(android.R.drawable.ic_media_pause);
-                } else {
-                    holder.taskTimetrackingButton.setImageResource(android.R.drawable.ic_media_play);
-                }
-
-                holder.taskTimetrackingButton.setClickable(true);
-                holder.taskTimetrackingButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (bRunningFinal) {
-                            try {
-                                timeFinal.put("stoptime", System.currentTimeMillis());
-                            } catch (JSONException e) {
-                            }
-                        } else {
-                            try {
-                                JSONObject newTime = new JSONObject();
-                                newTime.put("starttime", System.currentTimeMillis());
-                                if (timesFinal != null) {
-                                    timesFinal.put(newTime);
-                                } else {
-                                    JSONArray newTimes = new JSONArray();
-                                    newTimes.put(newTime);
-                                    holder.task.put("times", newTimes);
-                                }
-                            } catch (JSONException e) {
-                            }
-                        }
-
-                        updateTask(holder.task);
-                    }
-                });
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-
-            if (position % 2 == 0) {
-                row.setBackgroundColor(Color.rgb(213, 229, 241));
-            } else {
-                row.setBackgroundColor(Color.rgb(255, 255, 255));
-            }
-
-            return row;
-        }
-
-        @Override
-        public int getCount() {
-            return taskList.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return null;
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return 0;
-        }
-    }
-
     MyBluetoothService mbs = null;
-    public void connectBt() {
+    public void connectBt(String deviceName) {
         if (mbs == null) {
-            mbs = new MyBluetoothService(this, new Handler());
+            mbs = new MyBluetoothService(this, handler, deviceName);
         } else {
-            Toast.makeText(this,"Already connecting/ed", Toast.LENGTH_LONG).show();
+            mbs.cancel();
+            mbs = new MyBluetoothService(this, handler, deviceName);
         }
     }
 
-    private class MyHandler extends Handler {
+    private class HandlerCallback implements Handler.Callback {
         @Override
-        public void handleMessage(@NonNull Message msg) {
+        public boolean handleMessage(@NonNull Message msg) {
             switch (msg.what) {
                 case MyBluetoothService.MessageConstants.CONNECTFAILED:
                 case MyBluetoothService.MessageConstants.DISCONNECTED:
                     mbs = null;
+                    editDevicename.setVisibility(View.VISIBLE);
+                    btnConnect.setVisibility(View.VISIBLE);
+                    btnClear.setVisibility(View.GONE);
+                    btnFrischStart.setVisibility(View.GONE);
+                    btnFrischStop.setVisibility(View.GONE);
+                    btnAbwasserStart.setVisibility(View.GONE);
+                    btnAbwasserStop.setVisibility(View.GONE);
                     break;
                 case MyBluetoothService.MessageConstants.CONNECTED:
-                    mbs.write("z\r".getBytes());
+                    if (mbs != null) {
+                        mbs.write("z\r".getBytes());
+                    }
+                    editDevicename.setVisibility(View.GONE);
+                    btnConnect.setVisibility(View.GONE);
+                    btnClear.setVisibility(View.VISIBLE);
+                    btnFrischStart.setVisibility(View.VISIBLE);
+                    btnFrischStop.setVisibility(View.VISIBLE);
+                    btnAbwasserStart.setVisibility(View.VISIBLE);
+                    btnAbwasserStop.setVisibility(View.VISIBLE);
+                    break;
+                case MyBluetoothService.MessageConstants.MESSAGE_READ:
+                    String s = (String)msg.obj;
+                    if (s.startsWith("z,")) {
+                        String[] aS = s.split(",");
+                        textFlashcounter.setText(aS[4]);
+                        textConnectioncounter.setText(aS[1]);
+                        float liter = Integer.parseInt(aS[3]);
+
+                        SharedPreferences sharedPref = getSharedPreferences("settings", Context.MODE_PRIVATE);
+                        float literfactor = sharedPref.getFloat("literfactor", 0.002f);
+
+                        liter *= literfactor;
+                        textLiter.setText("" + liter + " l");
+                    }
+                    if (s.startsWith("p,")) {
+                        String[] aS = s.split(",");
+                        int laufzeit = Integer.parseInt(aS[1]);
+                        if (laufzeit > 60) {
+                            textLaufzeit1.setText("" + (int)(laufzeit / 60) + ":" + (laufzeit % 60) + " m:s");
+                        } else {
+                            textLaufzeit1.setText("" + laufzeit + " s");
+                        }
+
+                        laufzeit = Integer.parseInt(aS[2]);
+                        if (laufzeit > 60) {
+                            textLaufzeit2.setText("" + (int)(laufzeit / 60) + ":" + (laufzeit % 60) + " m:s");
+                        } else {
+                            textLaufzeit2.setText("" + laufzeit + " s");
+                        }
+                    }
+                    break;
+                case MyBluetoothService.MessageConstants.MESSAGE_WRITE:
+                    break;
+                case MyBluetoothService.MessageConstants.MESSAGE_TOAST:
+                    Toast.makeText(MainActivity.this, msg.getData().getString("toast"), Toast.LENGTH_SHORT).show();
                     break;
             }
+            return false;
         }
     }
 
-    MyHandler mHandler = new MyHandler();
-
-    public static List<JSONObject> TASK_LIST = new ArrayList<>();
+    EditText editDevicename = null;
+    Button btnConnect = null;
+    Button btnClear = null;
+    Button btnFrischStart = null;
+    Button btnFrischStop = null;
+    Button btnAbwasserStart = null;
+    Button btnAbwasserStop = null;
+    TextView textFlashcounter = null;
+    TextView textConnectioncounter = null;
+    TextView textLiter = null;
+    TextView textLaufzeit1 = null;
+    TextView textLaufzeit2 = null;
+    Handler handler = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        handler = new Handler(new HandlerCallback());
+
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
+
+        editDevicename = findViewById(R.id.editDevicename);
+        textFlashcounter = findViewById(R.id.flashcounter);
+        textConnectioncounter = findViewById(R.id.connectioncounter);
+        textLiter = findViewById(R.id.liter);
+        textLaufzeit1 = findViewById(R.id.laufzeit1);
+        textLaufzeit2 = findViewById(R.id.laufzeit2);
+
+        btnConnect = findViewById(R.id.btnConnect);
+        btnConnect.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                mbs = new MyBluetoothService(MainActivity.this, mHandler);
+                String deviceName = editDevicename.getText().toString();
+                connectBt(deviceName);
+                SharedPreferences sharedPref = getSharedPreferences("settings", Context.MODE_PRIVATE);
+                sharedPref.edit().putString("devicename", deviceName).commit();
             }
         });
-        DrawerLayout drawer = findViewById(R.id.drawer_layout);
-        NavigationView navigationView = findViewById(R.id.nav_view);
-        // Passing each menu ID as a set of Ids because each
-        // menu should be considered as top level destinations.
-        mAppBarConfiguration = new AppBarConfiguration.Builder(
-                R.id.nav_home)
-                .setDrawerLayout(drawer)
-                .build();
-/*
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-        NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
-        NavigationUI.setupWithNavController(navigationView, navController);
-*/
-        taskListAdapter = new TaskListAdapter(this, TASK_LIST);
-        ListView listView;
-        listView = (ListView) findViewById(R.id.tasklist);
-        listView.setAdapter(taskListAdapter);
 
-        if (!MainApplication.getApi().hasSessionKey(this)) {
-            CcApi.gotoLogin(this);
-        } else {
-            Handler h = new Handler();
-            MainApplication.getApi().call(h, new CcApi.Callback() {
-                public void then(JSONObject o, JSONArray a) throws Exception {
-                    fetchTasks();
-                }
-                public void catchy(Exception e, int status, String content) {
-                    Log.e("y", "" + status + ":" + content);
-                    Toast.makeText(MainActivity.this, "Checksession failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                }
-            }, "checksessionkey");
-        }
-    }
+        btnClear = findViewById(R.id.btnClear);
+        btnClear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (mbs != null) {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Zurücksetzen???")
+                            .setMessage("Wasserzähler zurücksetzen?")
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
 
-    public void fetchTasks() {
-        Handler h = new Handler();
-        MainApplication.getApi().call(h, new CcApi.Callback() {
-            public void then(JSONObject o, JSONArray a) throws Exception {
-                TASK_LIST.clear();
-                for(int i = 0; i < a.length(); i++) {
-                    JSONObject task = (JSONObject) a.get(i);
-                    TASK_LIST.add(task);
+                                public void onClick(DialogInterface dialog, int whichButton) {
+                                    mbs.write("r\r".getBytes());
+                                }})
+                            .setNegativeButton(android.R.string.no, null)
+                            .show();
                 }
-                taskListAdapter.notifyDataSetChanged();
             }
-            public void catchy(Exception e, int status, String content) {
-                Log.e("y", "" + status + ":" + content);
-                Toast.makeText(MainActivity.this, "Fetching tasks failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-            }
-        }, "listObjects", "customerprojecttask");
-    }
+        });
 
-    public void updateTask(JSONObject task) {
-        Handler h = new Handler();
-        MainApplication.getApi().call(h, new CcApi.Callback() {
-            public void then(JSONObject o, JSONArray a) throws Exception {
-                fetchTasks();
+        btnFrischStart = findViewById(R.id.btnFrischStart);
+        btnFrischStart.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (mbs != null) {
+                    mbs.write("k1\r".getBytes());
+                }
             }
-            public void catchy(Exception e, int status, String content) {
-                Log.e("y", "" + status + ":" + content);
-                Toast.makeText(MainActivity.this, "Updating task failed " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+        });
+
+        btnFrischStop = findViewById(R.id.btnFrischStop);
+        btnFrischStop.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (mbs != null) {
+                    mbs.write("k2\r".getBytes());
+                }
             }
-        }, "updateObject", "customerprojecttask", task);
+        });
+
+        btnAbwasserStart = findViewById(R.id.btnAbwasserStart);
+        btnAbwasserStart.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (mbs != null) {
+                    mbs.write("k3\r".getBytes());
+                }
+            }
+        });
+
+        btnAbwasserStop = findViewById(R.id.btnAbwasserStop);
+        btnAbwasserStop.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) {
+                if (mbs != null) {
+                    mbs.write("k4\r".getBytes());
+                }
+            }
+        });
+
+        SharedPreferences sharedPref = getSharedPreferences("settings", Context.MODE_PRIVATE);
+        editDevicename.setText(sharedPref.getString("devicename", "wasserzaehler"));
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
-
-/*
-    @Override
-    public boolean onSupportNavigateUp() {
-        NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
-        return NavigationUI.navigateUp(navController, mAppBarConfiguration)
-                || super.onSupportNavigateUp();
-    }
- */
 }
