@@ -147,7 +147,7 @@ public class CcApi {
                 public void onErrorResponse(VolleyError error) {
                     h.postDelayed(new Runnable() {
                         public void run() {
-                            cb.catchy(error, error.networkResponse.statusCode, new String(error.networkResponse.data));
+                            cb.catchy(error, error.networkResponse != null ? error.networkResponse.statusCode : -1, new String(error.networkResponse != null ? error.networkResponse.data : "".getBytes()));
                         }
                     }, 0);
                 }

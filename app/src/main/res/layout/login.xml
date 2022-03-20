@@ -15,11 +15,21 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <EditText
+            android:id="@+id/login_host"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ems="10"
+            android:hint="Server"
+            android:text="http://10.1.0.182"
+            android:inputType="textUri" />
+
+        <EditText
             android:id="@+id/login_username"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ems="10"
             android:hint="Username"
+            android:text="admin"
             android:inputType="textPersonName" />
 
         <EditText
@@ -28,6 +38,7 @@
             android:layout_height="wrap_content"
             android:ems="10"
             android:hint="Password"
+            android:text="plasma"
             android:inputType="textPassword" />
 
         <Button

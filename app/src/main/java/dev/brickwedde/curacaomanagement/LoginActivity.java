@@ -29,9 +29,11 @@ public class LoginActivity extends Activity {
         b.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                EditText host = findViewById(R.id.login_host);
                 EditText username = findViewById(R.id.login_username);
                 EditText password = findViewById(R.id.login_password);
                 Handler h = new Handler();
+                MainApplication.changeHost(getApplicationContext(), host.getText().toString());
                 MainApplication.getApi().call(h, new CcApi.Callback() {
                     public void then(JSONObject o, JSONArray a) throws Exception {
                         Log.e("y", o.toString());
