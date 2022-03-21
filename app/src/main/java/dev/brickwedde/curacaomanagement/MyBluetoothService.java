@@ -29,7 +29,7 @@ public class MyBluetoothService {
         handler = p_handler;
         cthread = new ConnectedThread();
         cthread.start();
-        m_deviceName = p_deviceName.toLowerCase();
+        m_deviceName = p_deviceName.toLowerCase().trim();
     }
 
     public interface MessageConstants {
@@ -50,13 +50,13 @@ public class MyBluetoothService {
         public void run() {
             try {
                 BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                while(true) {
+                while(!this.isInterrupted() && this.isAlive()) {
                     Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
                     if (pairedDevices.size() > 0) {
                         for (BluetoothDevice device : pairedDevices) {
                             String deviceName = device.getName();
                             String deviceHardwareAddress = device.getAddress(); // MAC address
-                            if (deviceName.toLowerCase().equals(m_deviceName)) {
+                            if (deviceName.toLowerCase().trim().equals(m_deviceName)) {
                                 mmSocket = device.createRfcommSocketToServiceRecord( BT_SERIAL_DEVICE_UUID);
 
                                 try {
@@ -86,7 +86,11 @@ public class MyBluetoothService {
                                                     break;
                                                 }
                                                 String sCmdLine = sCmd.substring(0, i);
-                                                sCmd = sCmd.substring(i + 2);
+                                                try {
+                                                    sCmd = sCmd.substring(i + 2);
+                                                } catch (Exception e) {
+                                                    sCmd = "";
+                                                }
 
                                                 Message readMsg = handler.obtainMessage(
                                                         MessageConstants.MESSAGE_READ, sCmdLine.length(), -1,
@@ -144,7 +148,11 @@ public class MyBluetoothService {
 
     public void cancel() {
         try {
-            mmSocket.close();
+            if (mmSocket != null) {
+                mmSocket.close();
+                mmSocket = null;
+            }
+            cthread.interrupt();
         } catch (IOException e) {
             Log.e(TAG, "Could not close the connect socket", e);
         }

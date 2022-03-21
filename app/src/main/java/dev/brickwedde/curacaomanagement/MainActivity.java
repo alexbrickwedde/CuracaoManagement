@@ -54,9 +54,6 @@ public class MainActivity extends AppCompatActivity {
                     btnAbwasserStop.setVisibility(View.GONE);
                     break;
                 case MyBluetoothService.MessageConstants.CONNECTED:
-                    if (mbs != null) {
-                        mbs.write("z\r".getBytes());
-                    }
                     editDevicename.setVisibility(View.GONE);
                     btnConnect.setVisibility(View.GONE);
                     btnClear.setVisibility(View.VISIBLE);
@@ -202,6 +199,16 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPref = getSharedPreferences("settings", Context.MODE_PRIVATE);
         editDevicename.setText(sharedPref.getString("devicename", "wasserzaehler"));
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mbs != null) {
+            mbs.cancel();
+            mbs = null;
+        }
+        this.finish();
     }
 
     @Override
