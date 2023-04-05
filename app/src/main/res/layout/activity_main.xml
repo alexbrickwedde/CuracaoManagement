@@ -5,8 +5,9 @@
     android:orientation="vertical">
 
     <TableLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
 
         <TableRow
             android:layout_width="match_parent"
@@ -27,6 +28,16 @@
                 android:id="@+id/btnConnect"
                 android:layout_margin="20dp"
                 ></Button>
+        </TableRow>
+
+        <TableRow>
+            <TextView android:id="@+id/connState"
+                android:layout_margin="20dp"
+                ></TextView>
+            <ImageView android:id="@+id/connStateImg"
+                android:layout_margin="20dp"
+                android:src="@android:drawable/btn_star_big_off"
+                ></ImageView>
         </TableRow>
 
         <TableRow

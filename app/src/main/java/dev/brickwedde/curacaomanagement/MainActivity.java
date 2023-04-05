@@ -29,13 +29,14 @@ import androidx.appcompat.widget.Toolbar;
 public class MainActivity extends AppCompatActivity {
 
     MyBluetoothService mbs = null;
+    private ImageView connStateImage;
+    private TextView connStateText;
+
     public void connectBt(String deviceName) {
-        if (mbs == null) {
-            mbs = new MyBluetoothService(this, handler, deviceName);
-        } else {
+        if (mbs != null) {
             mbs.cancel();
-            mbs = new MyBluetoothService(this, handler, deviceName);
         }
+        mbs = new MyBluetoothService(this, handler, deviceName);
     }
 
     private class HandlerCallback implements Handler.Callback {
@@ -52,15 +53,35 @@ public class MainActivity extends AppCompatActivity {
                     btnFrischStop.setVisibility(View.GONE);
                     btnAbwasserStart.setVisibility(View.GONE);
                     btnAbwasserStop.setVisibility(View.GONE);
+                    connStateText.setText("Not connected");
+                    connStateImage.setImageResource(android.R.drawable.btn_star_big_off);
                     break;
                 case MyBluetoothService.MessageConstants.CONNECTED:
-                    editDevicename.setVisibility(View.GONE);
-                    btnConnect.setVisibility(View.GONE);
-                    btnClear.setVisibility(View.VISIBLE);
-                    btnFrischStart.setVisibility(View.VISIBLE);
-                    btnFrischStop.setVisibility(View.VISIBLE);
-                    btnAbwasserStart.setVisibility(View.VISIBLE);
-                    btnAbwasserStop.setVisibility(View.VISIBLE);
+                    switch(msg.arg1) {
+                        case 0:
+                            editDevicename.setVisibility(View.GONE);
+                            btnConnect.setVisibility(View.GONE);
+                            btnClear.setVisibility(View.VISIBLE);
+                            btnFrischStart.setVisibility(View.VISIBLE);
+                            btnFrischStop.setVisibility(View.VISIBLE);
+                            btnAbwasserStart.setVisibility(View.VISIBLE);
+                            btnAbwasserStop.setVisibility(View.VISIBLE);
+
+                            connStateText.setText("Connected");
+                            connStateImage.setImageResource(android.R.drawable.button_onoff_indicator_on);
+                            break;
+                        case 1:
+                            connStateText.setText("Device found");
+                            connStateImage.setImageResource(android.R.drawable.btn_star_big_on);
+                            break;
+                        case 2:
+                            connStateText.setText("Connecting Device");
+                            connStateImage.setImageResource(android.R.drawable.button_onoff_indicator_off);
+                            break;
+                        case 3:
+                            connStateText.setText("Connected");
+                            break;
+                    }
                     break;
                 case MyBluetoothService.MessageConstants.MESSAGE_READ:
                     String s = (String)msg.obj;
@@ -142,6 +163,14 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                String deviceName = editDevicename.getText().toString();
+                connectBt(deviceName);
+            }
+        }, 1000);
+
         btnClear = findViewById(R.id.btnClear);
         btnClear.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
@@ -187,6 +216,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        connStateText = (TextView)findViewById(R.id.connState);
+        connStateImage = (ImageView)findViewById(R.id.connStateImg);
 
         btnAbwasserStop = findViewById(R.id.btnAbwasserStop);
         btnAbwasserStop.setOnClickListener(new View.OnClickListener() {

@@ -48,6 +48,7 @@ public class MyBluetoothService {
 
     private class ConnectedThread extends Thread {
         public void run() {
+            Message cnnctMsg;
             try {
                 BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                 while(!this.isInterrupted() && this.isAlive()) {
@@ -57,10 +58,18 @@ public class MyBluetoothService {
                             String deviceName = device.getName();
                             String deviceHardwareAddress = device.getAddress(); // MAC address
                             if (deviceName.toLowerCase().trim().equals(m_deviceName)) {
+                                cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 1, -1,null);
+                                handler.sendMessage(cnnctMsg);
+
                                 mmSocket = device.createRfcommSocketToServiceRecord( BT_SERIAL_DEVICE_UUID);
 
+                                cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 2, -1,null);
+                                handler.sendMessage(cnnctMsg);
                                 try {
                                     mmSocket.connect();
+
+                                    cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 3, -1,null);
+                                    handler.sendMessage(cnnctMsg);
 
                                     mmInStream= mmSocket.getInputStream();
                                     mmOutStream = mmSocket.getOutputStream();
@@ -68,7 +77,7 @@ public class MyBluetoothService {
                                     mmBuffer = new byte[1024];
                                     String sCmd = "";
 
-                                    Message cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
+                                    cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
                                     handler.sendMessage(cnnctMsg);
 
                                     while (true) {
