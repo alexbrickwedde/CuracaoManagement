@@ -68,15 +68,15 @@ public class MainActivity extends AppCompatActivity {
                             btnAbwasserStop.setVisibility(View.VISIBLE);
 
                             connStateText.setText("Connected");
-                            connStateImage.setImageResource(android.R.drawable.button_onoff_indicator_on);
+                            connStateImage.setImageResource(android.R.drawable.btn_star_big_on);
                             break;
                         case 1:
                             connStateText.setText("Device found");
-                            connStateImage.setImageResource(android.R.drawable.btn_star_big_on);
+                            connStateImage.setImageResource(android.R.drawable.btn_minus);
                             break;
                         case 2:
                             connStateText.setText("Connecting Device");
-                            connStateImage.setImageResource(android.R.drawable.button_onoff_indicator_off);
+                            connStateImage.setImageResource(android.R.drawable.btn_plus);
                             break;
                         case 3:
                             connStateText.setText("Connected");

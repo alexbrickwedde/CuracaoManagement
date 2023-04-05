@@ -44,6 +44,7 @@ public class MyBluetoothService {
     private BluetoothSocket mmSocket;
     private InputStream mmInStream;
     private OutputStream mmOutStream;
+    private boolean doRun = true;
     private byte[] mmBuffer; // mmBuffer store for the stream
 
     private class ConnectedThread extends Thread {
@@ -51,7 +52,7 @@ public class MyBluetoothService {
             Message cnnctMsg;
             try {
                 BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                while(!this.isInterrupted() && this.isAlive()) {
+                while(doRun && !this.isInterrupted() && this.isAlive()) {
                     Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
                     if (pairedDevices.size() > 0) {
                         for (BluetoothDevice device : pairedDevices) {
@@ -80,7 +81,7 @@ public class MyBluetoothService {
                                     cnnctMsg = handler.obtainMessage(MessageConstants.CONNECTED, 0, -1,null);
                                     handler.sendMessage(cnnctMsg);
 
-                                    while (true) {
+                                    while (doRun) {
                                         try {
                                             int len = mmInStream.read(mmBuffer);
                                             String sTemp = new String(mmBuffer, 0, len, Charset.forName("UTF-8"));
@@ -127,6 +128,10 @@ public class MyBluetoothService {
                             }
                         }
                     }
+                    try {
+                        Thread.sleep(1000);
+                    } catch (Exception e) {
+                    }
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Socket's listen() method failed", e);
@@ -156,14 +161,14 @@ public class MyBluetoothService {
     }
 
     public void cancel() {
+        doRun = false;
         try {
             if (mmSocket != null) {
                 mmSocket.close();
-                mmSocket = null;
             }
-            cthread.interrupt();
         } catch (IOException e) {
             Log.e(TAG, "Could not close the connect socket", e);
         }
+        mmSocket = null;
     }
 }
